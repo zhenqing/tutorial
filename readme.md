@@ -10,6 +10,11 @@ Maven 是一个项目管理和构建自动化工具。
 
 >Maven dynamically downloads Java libraries and Maven plug-ins from one or more repositories such as the Maven 2 Central Repository, and stores them in a local cache.[4] This local cache of downloaded artifacts can also be updated with artifacts created by local projects. Public repositories can also be updated.
 
+maven 编译的项目在发布的时候只需要发布源码，小得很，而反之，ant的发布则要把所有的包一起发布。
+maven的编译以及所有的脚本都有一个基础，就是POM （project object model）。这个模型定义了项目的方方面面，然后各式各样的脚本在这个模型上工作，而ant完全是自己定义。
+Maven对所依赖的包有明确的定义，如使用那个包，版本是多少，一目了然。而ant则通常是简单的inclde 所有的jar。
+maven有大量的重用脚本可以利用，如生成网站，生成javadoc，sourcecode reference等。而ant都需要自己去写。
+maven目前不足的地方就是没有象ant那样成熟的GUI界面。  
 ![maven](https://www.ibm.com/developerworks/cn/education/java/j-mavenv2/figure1.jpg)
 ![maven2](https://www.ibm.com/developerworks/cn/education/java/j-mavenv2/figure2.gif)
 - 项目对象模型（POM）
@@ -41,6 +46,7 @@ ___
 ## 安装
 在安装 maven 前，先保证你安装了 JDK 。
 [Maven官方下载链接](http://maven.apache.org/download.html)  
+[官方文档](http://maven.apache.org/index.html)
 The installation of Apache Maven is a simple process of extracting the archive and adding the bin folder with the mvn command to the PATH.  
 `$ mvn -v `  
 显示下面信息说明安装成功:
@@ -138,10 +144,60 @@ Maven 坐标是一组可以惟一标识工件的三元组值。坐标包含了�
 - 工件 ID
 - 版本
 
+### Parent POM 继承
+>A parent POM enables you to define an inheritance style relationship between POMs. POM files at the bottom of the hierarchy declare that they inherit from a specific parent POM. The parent POM can then be used to share certain properties and details of configuration.
+
+### Aggregate POM 聚合
+> build the projects in a certain order and the developer must remember to observe the correct build order.
+This consists of a single POM file (the aggregate POM), usually in the parent directory of the individual projects. The POM file specifies which sub-projects (or modules) to build and builds them in the specified order.
+
+### Multi-Module Projects
+>If you have a multi-module project, building all subprojects at once is a trivial task. In the parent POM you add a module element in the modules section for all child projects and you are done.
+
+```
+<project ...>
+  ...
+  <groupId>de.mycorp.something</groupId>
+  <artifactId>something</artifactId>
+  <version>1.0.0-SNAPSHOT</version>
+  ...
+  <modules>
+    <module>something-lib</module>
+    <module>something-domain</module>
+    <module>something-web</module>
+  </modules>
+  ...
+</project>
+```
 ### 例子
 - watchman
 - ListingMapping
 - jsoup
+
+## elements
+- modules
+- parent
+- properties
+- import
+## Properties
+- 内置属性 `${basedir}` `${version}`
+- POM属性 `${project.artifactId}` `${project.build.sourceDirectory}`
+- 自定义属性
+- Settings属性 `以settings. 开头的属性引用settings.xml文件中的XML元素的值`
+- java系统属性 `${user.home}`
+- 环境变量属性 `${env.JAVA_HOME}`
+```
+<properties>
+    <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+    <compiler.plugin.version>3.5.1</compiler.plugin.version>
+    <dependency.plugin.version>2.10</dependency.plugin.version>
+    <source.plugin.version>3.0.1</source.plugin.version>
+    <javadoc.plugin.version>2.10.4</javadoc.plugin.version>
+    <release.plugin.version>2.5.3</release.plugin.version>
+    <java.language.level>1.8</java.language.level>
+    <nexus.server>51.34.33.173:8081</nexus.server>
+</properties>
+```
 
 ## Dependency Mechanism
 
@@ -156,13 +212,101 @@ Maven 坐标是一组可以惟一标识工件的三元组值。坐标包含了�
 ## 仓库
 - 本地仓库  
 系统用户的.m2/repository下面
-- 远程仓库  
+- 中央仓库  
 [maven repository](https://mvnrepository.com/)
+由 Maven 社区管理,不需要配置,需要通过网络才能访问。
+- 远程仓库
+```
+<repositories>
+  <repository>
+     <id>companyname.lib1</id>
+     <url>http://download.companyname.org/maven2/lib1</url>
+  </repository>
+  <repository>
+     <id>companyname.lib2</id>
+     <url>http://download.companyname.org/maven2/lib2</url>
+  </repository>
+</repositories>  
+```
+- 步骤 1 － 在本地仓库中搜索，如果找不到，执行步骤 2，如果找到了则执行其他操作。
+- 步骤 2 － 在中央仓库中搜索，如果找不到，并且有一个或多个远程仓库已经设置，则执行步骤 4，如果找到了则下载到本地仓库中已被将来引用。
+- 步骤 3 － 如果远程仓库没有被设置，Maven 将简单的停滞处理并抛出错误（无法找到依赖的文件）。
+- 步骤 4 － 在一个或多个远程仓库中搜索依赖的文件，如果找到则下载到本地仓库已被将来引用，否则 Maven 将停止处理并抛出错误（无法找到依赖的文件）。
 
+ pom.xml的作用范围限于一个项目， 但一个公司/组织通常不只开发一个项目，那么为了避免重复配置，那么我们可以把一些公共配置放在${MAVEN_HOME}/conf/setting.xml(或${user.home}/.m2/setting.xml中。
+## 外部依赖
+```
+<dependency>
+   <groupId>ldapjdk</groupId>
+   <artifactId>ldapjdk</artifactId>
+   <scope>system</scope>
+   <version>1.0</version>
+   <systemPath>${basedir}\src\lib\ldapjdk.jar</systemPath>
+</dependency>
+```
 ## 插件
 Maven is - at its heart - a plugin execution framework; all work is done by plugins.   
 - Build plugins will be executed during the build and they should be configured in the <build/> element from the POM.
 - Reporting plugins will be executed during the site generation and they should be configured in the <reporting/> element from the POM.
+most of the intelligence of Maven is implemented in the plugins and the plugins are retrieved from the Maven
+Repository. In fact, the first time you ran something like mvn install with a brand-new Maven installation it retrieved most of the core Maven plugins from the Central Maven Repository. This is more
+than just a trick to minimize the download size of the Maven distribution, this is behavior which allows
+you to upgrade a plugin to add capability to your project’s build. The fact that Maven retrieves both
+dependencies and plugins from the remote repository allows for universal reuse of build logic.
+
+org/apache/maven/plugins subfolder
+- Core plugins: clean, compiler, deploy, install, resources
+- Packaging plugins: source, jar, war
+- Reporting plugins: javadoc, linkcheck
+- Tool plugins: dependency, plugin, release, scm
+
+## Profile
+A profile in Maven is an alternative set of configuration values which set or override default values. Using
+a profile, you can customize a build for different environments. Profiles are configured in the pom.xml
+and are given an identifier.
+```
+<profiles>
+    <profile>
+        <id>disable-java8-doclint</id>
+        <activation>
+            <jdk>[1.8,)</jdk>
+        </activation>
+        <properties>
+            <additionalparam>-Xdoclint:none</additionalparam>
+        </properties>
+    </profile>
+</profiles>
+```
+### Activation Configuration
+Activations can contain one of more selectors including JDK versions, Operating System parameters,
+files, and properties.
+```
+<project>
+  <profiles>
+    <profile>
+      <id>dev</id>
+      <activation>
+        <activeByDefault>false</activeByDefault>
+        <jdk>1.5</jdk>
+        <os>
+        <name>Windows XP</name>
+        <family>Windows</family>
+        <arch>x86</arch>
+        <version>5.1.2600</version>
+        </os>
+        <property>
+          <name>customProperty</name>
+          <value>BLUE</value>
+        </property>
+        <file>
+          <exists>file2.properties</exists>
+          <missing>file1.properties</missing>
+        </file>
+      </activation>
+    </profile>
+  </profiles>
+</project>
+```
 
 ## 常用指令
 `指令执行地点：项目根路径下面（Pom.xml存储地址）`
@@ -182,8 +326,8 @@ Maven is - at its heart - a plugin execution framework; all work is done by plug
 - 显示详细错误: mvn -e
 - 生成项目相关信息的网站: mvn site
 ## 生命周期
-Build Lifecycle是由phases构成的，下面重点介绍default Build Lifecycle几个重要的phase,phase是有序的（注意实际两个相邻phase之间还有其他phase被省略，完整phase见lifecycle），下面一个phase的执行必须在上一个phase完成后
-1. validate 验证项目是否正确以及必须的信息是否可用。若直接以某一个phase为goal，将先执行完它之前的phase，如mvn install 将会先validate、compile、test、package、integration-test、verify最后再执行install phase。
+Build Lifecycle是由phases构成的，下面重点介绍default Build Lifecycle几个重要的phase,phase是有序的（注意实际两个相邻phase之间还有其他phase被省略，完整phase见lifecycle），下面一个phase的执行必须在上一个phase完成后。每个phase都可以作为goal，也可以联合，如mvn clean install。若直接以某一个phase为goal，将先执行完它之前的phase，如mvn install 将会先validate、compile、test、package、integration-test、verify最后再执行install phase。
+1. validate 验证项目是否正确以及必须的信息是否可用。
 2. generate-sources 生成源码
 3. process-sources 处理源码
 4. generate-resources 生成资源
@@ -196,5 +340,57 @@ Build Lifecycle是由phases构成的，下面重点介绍default Build Lifecycle
 11. package 打包编译后的代码，在target目录下生成package文件
 12. install 安装package到本地仓库，方便本地其它项目使用
 13. deploy 部署，拷贝最终的package到远程仓库和替他开发这或项目共享，在集成或发布环境完成
-## 注意事项
+## 版本号
+快照 一个特殊的版本，它表示当前开发的一个副本。与常规版本不同，Maven 为每一次构建从远程仓库中检出一份新的快照版本。
+Maven 一旦下载了指定的版本（例如 data-service:1.0），它将不会尝试从仓库里再次下载一个新的 1.0 版本。想要下载新的代码，数据服务版本需要被升级到 1.1。对于快照，每次用户接口团队构建他们的项目时，Maven 将自动获取最新的快照。
+The SNAPSHOT value refers to the 'latest' code along a development branch, and provides no guarantee the code is stable or unchanging. Conversely, the code in a 'release' version (any version value without the suffix SNAPSHOT) is unchanging.
 `<version>1.0-SNAPSHOT</version>`
+## offline mode
+`mvn -o install`  
+`mvn -o clean install -DskipTests=true`
+idea setting build tool
+## 配置文件
+- 全局配置文件：{installed_dir}/conf/settings.xml
+- 优先级更高的配置文件：${user.home}/.m2/settings.xml
+## jdk版本
+修改maven创建项目默认以来的jdk版本
+- 修改项目的pom.xml，影响单个项目，治标不治本
+```
+<build>  
+    <plugins>  
+        <plugin>  
+            <groupId>org.apache.maven.plugins</groupId>  
+            <artifactId>maven-compiler-plugin</artifactId>  
+            <configuration>  
+                <source>1.6</source>  
+                <target>1.6</target>  
+                <encoding>UTF-8</encoding>  
+            </configuration>  
+        </plugin>  
+    </plugins>  
+</build>  
+```
+- 修改maven配置，影响maven建立的所有项目
+conf/settings.xml
+```
+<profiles>     
+       <profile>       
+            <id>jdk-1.6</id>       
+            <activation>       
+                <activeByDefault>true</activeByDefault>       
+                <jdk>1.6</jdk>       
+            </activation>       
+            <properties>       
+                <maven.compiler.source>1.6</maven.compiler.source>       
+                <maven.compiler.target>1.6</maven.compiler.target>       
+                <maven.compiler.compilerVersion>1.6</maven.compiler.compilerVersion>       
+            </properties>       
+    </profile>      
+</profiles>
+```
+
+## 问题排查
+- mvn -Dsurefire.useFile=false   			#如果执行单元测试出错，用该命令可以在console输出失败的单元测试及相关信息
+- set MAVEN_OPTS=-Xmx512m -XX:MaxPermSize=256m 	#调大jvm内存和持久代，maven/jvm out of memory error
+- mvn -X maven log level 				#设定为debug在运行
+- mvndebug 					#运行jpda允许remote debug
